@@ -3,8 +3,15 @@ kind: Ingress
 metadata:
   name: todo-ingress
   namespace: todo-app
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
   ingressClassName: nginx
+  tls:
+    - hosts:
+        - todo.theabhipatel.com
+        - api.todo.theabhipatel.com
+      secretName: todo-tls-secret
   rules:
     - host: todo.theabhipatel.com
       http:
