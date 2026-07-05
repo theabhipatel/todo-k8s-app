@@ -6,6 +6,10 @@ COPY . .
 
 RUN npm install
 
+# Accept the API URL at build time
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
 RUN npm run build
 
 # Second Stage 
