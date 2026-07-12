@@ -35,8 +35,14 @@ sudo apt update && sudo apt upgrade -y
 ```
 
 ### 2. Install k3s (Traefik disabled — using nginx-ingress instead)
+> **Note:** We pin the k3s version to ensure a stable, reproducible environment.
+
 ```bash
-curl -sfL https://get.k3s.io | sh -s - --disable traefik
+export K3S_VERSION="v1.34.1+k3s1"
+
+curl -sfL https://get.k3s.io | \
+  INSTALL_K3S_VERSION="${K3S_VERSION}" \
+  sh -s - --disable traefik
 ```
 
 ### 3. Verify k3s service is running
