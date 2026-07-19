@@ -40,7 +40,7 @@
       shell: |
         curl -sfL https://get.k3s.io | \
         INSTALL_K3S_VERSION="{{ k3s_version }}" \
-        sh -s - --disable traefik
+        sh -s - --disable traefik --write-kubeconfig-mode 644
       when: k3s_check.rc != 0
 
     - name: Wait for Kubernetes node to be ready
