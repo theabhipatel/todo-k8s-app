@@ -1,0 +1,167 @@
+---
+- name: Configure k3s Kubernetes Server
+  hosts: k3s_server
+  become: true
+
+  vars:
+    k3s_version: "v1.34.1+k3s1"
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+
+  tasks:
+
+    # --------------------------------------------------
+    # System
+    # --------------------------------------------------
+
+    - name: Update apt cache
+      apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Install required packages
+      apt:
+        name:
+          - curl
+          - git
+        state: present
+
+    # --------------------------------------------------
+    # k3s
+    # --------------------------------------------------
+
+    - name: Check if k3s is installed
+      command: k3s --version
+      register: k3s_check
+      failed_when: false
+      changed_when: false
+
+    - name: Install k3s
+      shell: |
+        curl -sfL https://get.k3s.io | \
+        INSTALL_K3S_VERSION="{{ k3s_version }}" \
+        sh -s - --disable traefik
+      when: k3s_check.rc != 0
+
+    - name: Wait for Kubernetes node to be ready
+      command: kubectl wait --for=condition=Ready node --all --timeout=300s
+      changed_when: false
+
+    # --------------------------------------------------
+    # Helm
+    # --------------------------------------------------
+
+    - name: Check if Helm is installed
+      command: helm version
+      register: helm_check
+      failed_when: false
+      changed_when: false
+
+    - name: Install Helm
+      shell: curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+      when: helm_check.rc != 0
+
+    # --------------------------------------------------
+    # Helm Repositories
+    # --------------------------------------------------
+
+    - name: Add NGINX Ingress Helm repository
+      command: helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+      register: nginx_repo
+      failed_when: nginx_repo.rc != 0 and "already exists" not in nginx_repo.stderr
+      changed_when: nginx_repo.rc == 0
+
+    - name: Add Jetstack Helm repository
+      command: helm repo add jetstack https://charts.jetstack.io
+      register: jetstack_repo
+      failed_when: jetstack_repo.rc != 0 and "already exists" not in jetstack_repo.stderr
+      changed_when: jetstack_repo.rc == 0
+
+    - name: Add Prometheus Helm repository
+      command: helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+      register: prometheus_repo
+      failed_when: prometheus_repo.rc != 0 and "already exists" not in prometheus_repo.stderr
+      changed_when: prometheus_repo.rc == 0
+
+    - name: Add ArgoCD Helm repository
+      command: helm repo add argo https://argoproj.github.io/argo-helm
+      register: argo_repo
+      failed_when: argo_repo.rc != 0 and "already exists" not in argo_repo.stderr
+      changed_when: argo_repo.rc == 0
+
+    - name: Update Helm repositories
+      command: helm repo update
+      changed_when: false
+
+    # --------------------------------------------------
+    # NGINX Ingress
+    # --------------------------------------------------
+
+    - name: Install NGINX Ingress
+      command: >
+        helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx
+        --namespace ingress-nginx
+        --create-namespace
+        --wait
+        --timeout 10m
+
+    # --------------------------------------------------
+    # cert-manager
+    # --------------------------------------------------
+
+    - name: Install cert-manager
+      command: >
+        helm upgrade --install cert-manager jetstack/cert-manager
+        --namespace cert-manager
+        --create-namespace
+        --set crds.enabled=true
+        --wait
+        --timeout 10m
+
+    # --------------------------------------------------
+    # Prometheus + Grafana
+    # --------------------------------------------------
+
+    - name: Install Prometheus and Grafana
+      command: >
+        helm upgrade --install monitoring
+        prometheus-community/kube-prometheus-stack
+        --namespace monitoring
+        --create-namespace
+        --wait
+        --timeout 15m
+
+    # --------------------------------------------------
+    # ArgoCD
+    # --------------------------------------------------
+
+    - name: Install ArgoCD
+      command: >
+        helm upgrade --install argocd
+        argo/argo-cd
+        --namespace argocd
+        --create-namespace
+        --wait
+        --timeout 10m
+
+    # --------------------------------------------------
+    # Verify
+    # --------------------------------------------------
+
+    - name: Get Kubernetes nodes
+      command: kubectl get nodes
+      register: nodes
+      changed_when: false
+
+    - name: Show Kubernetes nodes
+      debug:
+        var: nodes.stdout_lines
+
+    - name: Get all pods
+      command: kubectl get pods -A
+      register: pods
+      changed_when: false
+
+    - name: Show all pods
+      debug:
+        var: pods.stdout_lines
