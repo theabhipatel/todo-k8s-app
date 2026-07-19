@@ -145,6 +145,16 @@
         --timeout 10m
 
     # --------------------------------------------------
+    # Bootstrap ArgoCD Application
+    # --------------------------------------------------
+    - name: Copy ArgoCD Application manifest
+      copy:
+        src: ../argocd/todo-app.yaml
+        dest: /tmp/todo-app.yaml
+
+    - name: Bootstrap Todo App in ArgoCD
+      command: kubectl apply -f /tmp/todo-app.yaml
+    # --------------------------------------------------
     # Verify
     # --------------------------------------------------
 
