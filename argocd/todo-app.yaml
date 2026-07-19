@@ -8,7 +8,7 @@ spec:
 
   source:
     repoURL: https://github.com/theabhipatel/todo-k8s-app.git
-    targetRevision: prod
+    targetRevision: master
     path: k8s
 
   destination:
