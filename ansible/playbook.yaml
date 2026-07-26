@@ -3,6 +3,10 @@
   hosts: k3s_server
   become: true
 
+
+  vars_files:
+    - secrets.yml
+    
   vars:
     k3s_version: "v1.34.1+k3s1"
   environment:
@@ -128,6 +132,8 @@
         prometheus-community/kube-prometheus-stack
         --namespace monitoring
         --create-namespace
+        --set grafana.adminUser={{ grafana_admin_user }}
+        --set grafana.adminPassword={{ grafana_admin_password }}
         --wait
         --timeout 15m
 
