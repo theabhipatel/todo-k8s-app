@@ -17,3 +17,9 @@ variable "my_ip" {
   description = "Your public IP with /32"
   type        = string
 }
+
+
+variable "cloudflare_zone_id" {
+  description = "Cloudflare Zone ID for theabhipatel.com"
+  type        = string
+}
