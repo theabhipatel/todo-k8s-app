@@ -1,4 +1,7 @@
-.terraform/
+# Terraform secrets
+secrets.auto.tfvars
 
+# Terraform state
 *.tfstate
 *.tfstate.*
+.terraform/
