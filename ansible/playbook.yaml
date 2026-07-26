@@ -9,6 +9,7 @@
     
   vars:
     k3s_version: "v1.34.1+k3s1"
+    kube_prometheus_stack_version: "87.18.0"
   environment:
     KUBECONFIG: /etc/rancher/k3s/k3s.yaml
 
@@ -107,6 +108,9 @@
         helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx
         --namespace ingress-nginx
         --create-namespace
+        --set controller.metrics.enabled=true
+        --set controller.metrics.serviceMonitor.enabled=true
+        --set controller.metrics.serviceMonitor.additionalLabels.release=monitoring
         --wait
         --timeout 10m
 
@@ -126,17 +130,80 @@
     # --------------------------------------------------
     # Prometheus + Grafana
     # --------------------------------------------------
+    - name: Copy Grafana Helm values
+      copy:
+        src: ../grafana/values.yaml
+        dest: /tmp/grafana-values.yaml
 
     - name: Install Prometheus and Grafana
       command: >
         helm upgrade --install monitoring
         prometheus-community/kube-prometheus-stack
+        --version {{ kube_prometheus_stack_version }}
         --namespace monitoring
         --create-namespace
+        --values /tmp/grafana-values.yaml
         --set grafana.adminUser={{ grafana_admin_user }}
-        --set grafana.adminPassword={{ grafana_admin_password }}
+        --set-string grafana.adminPassword={{ grafana_admin_password }}
         --wait
         --timeout 15m
+
+    # --------------------------------------------------
+    # Grafana Dashboards
+    # --------------------------------------------------
+
+    - name: Copy Grafana dashboards
+      copy:
+        src: ../grafana/dashboards/
+        dest: /tmp/grafana-dashboards/
+
+    - name: Create Server Health Grafana dashboard
+      shell: |
+        kubectl create configmap grafana-server-health \
+          --namespace monitoring \
+          --from-file=server-health.json=/tmp/grafana-dashboards/server-health.json \
+          --dry-run=client -o yaml | kubectl apply -f -
+
+        kubectl label configmap grafana-server-health \
+          --namespace monitoring \
+          grafana_dashboard=1 \
+          --overwrite
+
+    - name: Create Kubernetes Health Grafana dashboard
+      shell: |
+        kubectl create configmap grafana-kubernetes-health \
+          --namespace monitoring \
+          --from-file=kubernetes-health.json=/tmp/grafana-dashboards/kubernetes-health.json \
+          --dry-run=client -o yaml | kubectl apply -f -
+
+        kubectl label configmap grafana-kubernetes-health \
+          --namespace monitoring \
+          grafana_dashboard=1 \
+          --overwrite
+
+    - name: Create Traffic HTTP Grafana dashboard
+      shell: |
+        kubectl create configmap grafana-traffic-http \
+          --namespace monitoring \
+          --from-file=traffic-http.json=/tmp/grafana-dashboards/traffic-http.json \
+          --dry-run=client -o yaml | kubectl apply -f -
+
+        kubectl label configmap grafana-traffic-http \
+          --namespace monitoring \
+          grafana_dashboard=1 \
+          --overwrite
+
+    - name: Create Todo App Health Grafana dashboard
+      shell: |
+        kubectl create configmap grafana-todo-app-health \
+          --namespace monitoring \
+          --from-file=todo-app-health.json=/tmp/grafana-dashboards/todo-app-health.json \
+          --dry-run=client -o yaml | kubectl apply -f -
+
+        kubectl label configmap grafana-todo-app-health \
+          --namespace monitoring \
+          grafana_dashboard=1 \
+          --overwrite
 
     # --------------------------------------------------
     # ArgoCD Admin Password

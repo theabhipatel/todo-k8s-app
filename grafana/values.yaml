@@ -1,0 +1,11 @@
+grafana:
+  # Keep kube-prometheus-stack default dashboards
+  defaultDashboardsEnabled: true
+  defaultDashboardsFolder: Default
+
+  # Automatically discover our custom dashboard ConfigMaps
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      labelValue: "1"
