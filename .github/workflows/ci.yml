@@ -4,8 +4,10 @@ on:
   push:
     branches:
       - master
-    paths-ignore:
-      - "k8s/**"
+    paths:
+      - "frontend/**"
+      - "backend/**"
+      - ".github/workflows/ci.yml"
 
 permissions:
   contents: write
