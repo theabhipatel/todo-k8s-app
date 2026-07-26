@@ -15,6 +15,6 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: itheabhipatel/todo-frontend-live:v1
+          image: itheabhipatel/todo-frontend-live:82057d5ea983474adeccba8b7b52e5f9f3dca1f2
           ports:
             - containerPort: 80
