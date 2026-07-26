@@ -294,7 +294,9 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       <div className="mx-auto max-w-4xl px-6 py-10">
-        <h1 className="mb-8 text-center text-4xl font-bold">MERN Todo App</h1>
+        <h1 className="mb-8 text-center text-4xl font-bold">
+          MERN Todo App V1
+        </h1>
 
         {/* Error banner */}
         {bannerMessage && (
