@@ -99,6 +99,27 @@ async function safeFetchJson<T>(
   }
 }
 
+type ViewMode = "list" | "card";
+
+const PAGE_SIZE_OPTIONS = [5, 10, 20, 50] as const;
+
+/** Builds a compact page-number sequence with "…" gaps for large page counts. */
+function getPageNumbers(current: number, total: number): (number | "…")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+
+  const pages: (number | "…")[] = [1];
+  if (current > 3) pages.push("…");
+
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  for (let i = start; i <= end; i++) pages.push(i);
+
+  if (current < total - 2) pages.push("…");
+  pages.push(total);
+
+  return pages;
+}
+
 /** Injects the Sora / Inter / JetBrains Mono font families once per document. */
 function useProductFonts() {
   useEffect(() => {
@@ -239,11 +260,29 @@ function AppContent() {
   const [priorityFilter, setPriorityFilter] = useState("all");
 
   const [page, setPage] = useState(1);
-  const limit = 5;
+  const [limit, setLimit] = useState(10);
 
   const [loading, setLoading] = useState(false);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+
+  const [view, setView] = useState<ViewMode>("list");
+
+  // Offline support: read-only mode when the browser has no connection.
+  // The last successful GET /todos response is served from the service
+  // worker cache, but mutations require a live network so they're disabled.
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  useEffect(() => {
+    const goOnline = () => setIsOffline(false);
+    const goOffline = () => setIsOffline(true);
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, []);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -303,7 +342,7 @@ function AppContent() {
   useEffect(() => {
     fetchTodos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, search, status, priorityFilter]);
+  }, [page, limit, search, status, priorityFilter]);
 
   /* -------------------------- modal helpers -------------------------- */
 
@@ -446,9 +485,9 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-[#0B0D12] font-[Inter] text-[#E7E9EE]">
-      <div className="mx-auto max-w-3xl px-6 py-12">
+      <div className="mx-auto max-w-5xl px-6 py-12">
         {/* Header */}
-        <div className="mb-8 flex items-center justify-between gap-4">
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="font-[Sora] text-3xl font-bold tracking-tight">
               Todo
@@ -460,14 +499,128 @@ function AppContent() {
             </p>
           </div>
 
-          <button
-            onClick={openAddModal}
-            disabled={!!configError}
-            className="flex items-center gap-2 rounded-xl bg-[#7C6CF0] px-4 py-2.5 font-medium text-white shadow-lg shadow-[#7C6CF0]/20 transition hover:bg-[#6c5ce0] disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <span className="text-lg leading-none">+</span> New task
-          </button>
+          <div className="flex items-center gap-2">
+            {/* View toggle */}
+            <div className="flex rounded-xl border border-[#262B3A] bg-[#131620] p-1">
+              <button
+                onClick={() => setView("list")}
+                aria-label="List view"
+                aria-pressed={view === "list"}
+                className={`rounded-lg p-2 transition ${
+                  view === "list"
+                    ? "bg-[#191D29] text-white"
+                    : "text-[#5C6278] hover:text-[#8A90A6]"
+                }`}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <rect
+                    x="1"
+                    y="2.5"
+                    width="14"
+                    height="2"
+                    rx="1"
+                    fill="currentColor"
+                  />
+                  <rect
+                    x="1"
+                    y="7"
+                    width="14"
+                    height="2"
+                    rx="1"
+                    fill="currentColor"
+                  />
+                  <rect
+                    x="1"
+                    y="11.5"
+                    width="14"
+                    height="2"
+                    rx="1"
+                    fill="currentColor"
+                  />
+                </svg>
+              </button>
+              <button
+                onClick={() => setView("card")}
+                aria-label="Card view"
+                aria-pressed={view === "card"}
+                className={`rounded-lg p-2 transition ${
+                  view === "card"
+                    ? "bg-[#191D29] text-white"
+                    : "text-[#5C6278] hover:text-[#8A90A6]"
+                }`}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <rect
+                    x="1"
+                    y="1"
+                    width="6"
+                    height="6"
+                    rx="1.2"
+                    fill="currentColor"
+                  />
+                  <rect
+                    x="9"
+                    y="1"
+                    width="6"
+                    height="6"
+                    rx="1.2"
+                    fill="currentColor"
+                  />
+                  <rect
+                    x="1"
+                    y="9"
+                    width="6"
+                    height="6"
+                    rx="1.2"
+                    fill="currentColor"
+                  />
+                  <rect
+                    x="9"
+                    y="9"
+                    width="6"
+                    height="6"
+                    rx="1.2"
+                    fill="currentColor"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <button
+              onClick={openAddModal}
+              disabled={!!configError || isOffline}
+              className="flex items-center gap-2 rounded-xl bg-[#7C6CF0] px-4 py-2.5 font-medium text-white shadow-lg shadow-[#7C6CF0]/20 transition hover:bg-[#6c5ce0] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <span className="text-lg leading-none">+</span> New task
+            </button>
+          </div>
         </div>
+
+        {/* Offline banner */}
+        {!configError && isOffline && (
+          <div className="mb-6 flex items-center gap-3 rounded-xl border border-[#3A3420] bg-[#211D10] p-4 text-sm text-[#E8C77A]">
+            <span
+              className="h-2 w-2 shrink-0 rounded-full"
+              style={{ backgroundColor: "#E8C77A" }}
+            />
+            <span>
+              You're offline — showing your last synced tasks. Adding, editing,
+              and deleting are disabled until you're back online.
+            </span>
+          </div>
+        )}
 
         {/* Error banner */}
         {bannerMessage && (
@@ -538,21 +691,21 @@ function AppContent() {
         </div>
 
         {/* Todo List */}
-        <div className="space-y-3">
-          {configError ? null : loading ? (
-            <div className="rounded-xl border border-[#262B3A] bg-[#131620] p-8 text-center text-sm text-[#8A90A6]">
-              Loading...
-            </div>
-          ) : todos.length === 0 ? (
-            <div className="rounded-xl border border-[#262B3A] bg-[#131620] p-8 text-center">
-              <p className="text-sm text-[#8A90A6]">
-                {search || status !== "all" || priorityFilter !== "all"
-                  ? "No tasks match your filters."
-                  : "No tasks yet. Add your first one."}
-              </p>
-            </div>
-          ) : (
-            todos.map((todo) => {
+        {configError ? null : loading ? (
+          <div className="rounded-xl border border-[#262B3A] bg-[#131620] p-8 text-center text-sm text-[#8A90A6]">
+            Loading...
+          </div>
+        ) : todos.length === 0 ? (
+          <div className="rounded-xl border border-[#262B3A] bg-[#131620] p-8 text-center">
+            <p className="text-sm text-[#8A90A6]">
+              {search || status !== "all" || priorityFilter !== "all"
+                ? "No tasks match your filters."
+                : "No tasks yet. Add your first one."}
+            </p>
+          </div>
+        ) : view === "list" ? (
+          <div className="space-y-3">
+            {todos.map((todo) => {
               const overdue = isOverdue(todo);
               const cfg = PRIORITY_CONFIG[todo.priority || "medium"];
               const due = todo.dueDate ? formatDueDate(todo.dueDate) : null;
@@ -569,7 +722,8 @@ function AppContent() {
 
                   <button
                     onClick={() => toggleStatus(todo)}
-                    className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition"
+                    disabled={isOffline}
+                    className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition disabled:cursor-not-allowed disabled:opacity-50"
                     style={{
                       borderColor: todo.completed ? "#34C77B" : "#3A3F51",
                       backgroundColor: todo.completed
@@ -633,14 +787,16 @@ function AppContent() {
                   <div className="flex shrink-0 items-start gap-1 opacity-0 transition group-hover:opacity-100">
                     <button
                       onClick={() => openEditModal(todo)}
-                      className="rounded-lg px-2.5 py-1.5 text-sm text-[#8A90A6] hover:bg-[#191D29] hover:text-white"
+                      disabled={isOffline}
+                      className="rounded-lg px-2.5 py-1.5 text-sm text-[#8A90A6] hover:bg-[#191D29] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                       aria-label="Edit task"
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => setDeleteTarget(todo)}
-                      className="rounded-lg px-2.5 py-1.5 text-sm text-[#8A90A6] hover:bg-[#3A2430] hover:text-[#F2A5AC]"
+                      disabled={isOffline}
+                      className="rounded-lg px-2.5 py-1.5 text-sm text-[#8A90A6] hover:bg-[#3A2430] hover:text-[#F2A5AC] disabled:cursor-not-allowed disabled:opacity-50"
                       aria-label="Delete task"
                     >
                       Delete
@@ -648,32 +804,193 @@ function AppContent() {
                   </div>
                 </div>
               );
-            })
-          )}
-        </div>
+            })}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {todos.map((todo) => {
+              const overdue = isOverdue(todo);
+              const cfg = PRIORITY_CONFIG[todo.priority || "medium"];
+              const due = todo.dueDate ? formatDueDate(todo.dueDate) : null;
+
+              return (
+                <div
+                  key={todo._id}
+                  className="flex flex-col rounded-2xl border border-[#262B3A] bg-[#131620] p-5 transition hover:border-[#333a4d]"
+                  style={{ borderTopColor: cfg.color, borderTopWidth: 3 }}
+                >
+                  <div className="mb-3 flex items-start justify-between gap-2">
+                    <PriorityBadge priority={todo.priority || "medium"} />
+                    <button
+                      onClick={() => toggleStatus(todo)}
+                      disabled={isOffline}
+                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition disabled:cursor-not-allowed disabled:opacity-50"
+                      style={{
+                        borderColor: todo.completed ? "#34C77B" : "#3A3F51",
+                        backgroundColor: todo.completed
+                          ? "#34C77B"
+                          : "transparent",
+                      }}
+                      aria-label={
+                        todo.completed ? "Mark as pending" : "Mark as done"
+                      }
+                    >
+                      {todo.completed && (
+                        <span className="text-xs leading-none text-[#0B0D12]">
+                          ✓
+                        </span>
+                      )}
+                    </button>
+                  </div>
+
+                  <h3
+                    className={`font-medium ${
+                      todo.completed
+                        ? "text-[#5C6278] line-through"
+                        : "text-[#E7E9EE]"
+                    }`}
+                  >
+                    {todo.title}
+                  </h3>
+
+                  {todo.description && (
+                    <p
+                      className={`mt-1.5 line-clamp-3 text-sm ${
+                        todo.completed
+                          ? "text-[#4A5064] line-through"
+                          : "text-[#8A90A6]"
+                      }`}
+                    >
+                      {todo.description}
+                    </p>
+                  )}
+
+                  <div className="mt-4 flex flex-1 items-end justify-between gap-2">
+                    <div className="font-[JetBrains_Mono] text-xs text-[#5C6278]">
+                      {due && (
+                        <span
+                          className={
+                            overdue
+                              ? "rounded bg-[#3A2430] px-1.5 py-0.5 text-[#F2A5AC]"
+                              : ""
+                          }
+                        >
+                          {overdue ? "Overdue: " : "Due "}
+                          {due}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex shrink-0 gap-1">
+                      <button
+                        onClick={() => openEditModal(todo)}
+                        disabled={isOffline}
+                        className="rounded-lg px-2 py-1 text-xs text-[#8A90A6] hover:bg-[#191D29] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                        aria-label="Edit task"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => setDeleteTarget(todo)}
+                        disabled={isOffline}
+                        className="rounded-lg px-2 py-1 text-xs text-[#8A90A6] hover:bg-[#3A2430] hover:text-[#F2A5AC] disabled:cursor-not-allowed disabled:opacity-50"
+                        aria-label="Delete task"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Pagination */}
         {!configError && todos.length > 0 && (
-          <div className="mt-8 flex items-center justify-center gap-3">
-            <button
-              disabled={page === 1 || loading}
-              onClick={() => setPage((prev) => prev - 1)}
-              className="rounded-lg border border-[#262B3A] bg-[#131620] px-4 py-2 text-sm disabled:opacity-40"
-            >
-              Prev
-            </button>
+          <div className="mt-8 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-2 text-sm text-[#8A90A6]">
+              <span>
+                Showing {(page - 1) * limit + 1}–{Math.min(page * limit, total)}{" "}
+                of {total}
+              </span>
 
-            <span className="text-sm text-[#8A90A6]">
-              Page {page} / {totalPages}
-            </span>
+              <select
+                value={limit}
+                onChange={(e) => {
+                  setLimit(Number(e.target.value));
+                  setPage(1);
+                }}
+                className="rounded-lg border border-[#262B3A] bg-[#131620] px-2 py-1.5 text-sm outline-none"
+                aria-label="Tasks per page"
+              >
+                {PAGE_SIZE_OPTIONS.map((n) => (
+                  <option key={n} value={n}>
+                    {n} / page
+                  </option>
+                ))}
+              </select>
+            </div>
 
-            <button
-              disabled={page === totalPages || loading}
-              onClick={() => setPage((prev) => prev + 1)}
-              className="rounded-lg border border-[#262B3A] bg-[#131620] px-4 py-2 text-sm disabled:opacity-40"
-            >
-              Next
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                disabled={page === 1 || loading}
+                onClick={() => setPage(1)}
+                className="rounded-lg border border-[#262B3A] bg-[#131620] px-3 py-2 text-sm disabled:opacity-40"
+                aria-label="First page"
+              >
+                «
+              </button>
+              <button
+                disabled={page === 1 || loading}
+                onClick={() => setPage((prev) => prev - 1)}
+                className="rounded-lg border border-[#262B3A] bg-[#131620] px-3 py-2 text-sm disabled:opacity-40"
+                aria-label="Previous page"
+              >
+                ‹
+              </button>
+
+              {getPageNumbers(page, totalPages).map((p, i) =>
+                p === "…" ? (
+                  <span
+                    key={`ellipsis-${i}`}
+                    className="px-2 text-sm text-[#5C6278]"
+                  >
+                    …
+                  </span>
+                ) : (
+                  <button
+                    key={p}
+                    disabled={loading}
+                    onClick={() => setPage(p)}
+                    className={`min-w-[2.25rem] rounded-lg border px-3 py-2 text-sm transition disabled:opacity-40 ${
+                      p === page
+                        ? "border-[#7C6CF0] bg-[#7C6CF0]/15 text-[#7C6CF0]"
+                        : "border-[#262B3A] bg-[#131620] text-[#8A90A6] hover:text-white"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ),
+              )}
+
+              <button
+                disabled={page === totalPages || loading}
+                onClick={() => setPage((prev) => prev + 1)}
+                className="rounded-lg border border-[#262B3A] bg-[#131620] px-3 py-2 text-sm disabled:opacity-40"
+                aria-label="Next page"
+              >
+                ›
+              </button>
+              <button
+                disabled={page === totalPages || loading}
+                onClick={() => setPage(totalPages)}
+                className="rounded-lg border border-[#262B3A] bg-[#131620] px-3 py-2 text-sm disabled:opacity-40"
+                aria-label="Last page"
+              >
+                »
+              </button>
+            </div>
           </div>
         )}
       </div>
