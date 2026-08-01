@@ -1,6 +1,7 @@
 import {
   Component,
   useEffect,
+  useRef,
   useState,
   type ErrorInfo,
   type ReactNode,
@@ -38,21 +39,21 @@ const PRIORITY_CONFIG: Record<
 > = {
   high: {
     label: "High",
-    color: "#F2555B",
-    bg: "rgba(242,85,91,0.12)",
-    border: "rgba(242,85,91,0.35)",
+    color: "#FF5A52",
+    bg: "rgba(255,90,82,0.12)",
+    border: "rgba(255,90,82,0.35)",
   },
   medium: {
     label: "Medium",
-    color: "#F0A93A",
-    bg: "rgba(240,169,58,0.12)",
-    border: "rgba(240,169,58,0.35)",
+    color: "#FFB443",
+    bg: "rgba(255,180,67,0.12)",
+    border: "rgba(255,180,67,0.35)",
   },
   low: {
     label: "Low",
-    color: "#34C77B",
-    bg: "rgba(52,199,123,0.12)",
-    border: "rgba(52,199,123,0.35)",
+    color: "#4CD97B",
+    bg: "rgba(76,217,123,0.12)",
+    border: "rgba(76,217,123,0.35)",
   },
 };
 
@@ -164,22 +165,22 @@ class ErrorBoundary extends Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex min-h-screen items-center justify-center bg-[#0B0D12] px-6 text-white">
-          <div className="max-w-md rounded-2xl border border-[#262B3A] bg-[#131620] p-8 text-center">
+        <div className="flex min-h-screen items-center justify-center bg-[#120C09] px-6 text-white">
+          <div className="max-w-md rounded-2xl border border-[#35251E] bg-[#1C1310] p-8 text-center">
             <h1 className="mb-2 font-[Sora] text-2xl font-bold">
               Something went wrong
             </h1>
-            <p className="mb-6 text-sm text-[#8A90A6]">{this.state.message}</p>
+            <p className="mb-6 text-sm text-[#A4897C]">{this.state.message}</p>
             <div className="flex justify-center gap-3">
               <button
                 onClick={this.handleReset}
-                className="rounded-lg bg-[#7C6CF0] px-5 py-2.5 font-medium hover:bg-[#6c5ce0]"
+                className="rounded-lg bg-[#FF7A29] px-5 py-2.5 font-medium text-[#120C09] hover:bg-[#FF8C42]"
               >
                 Try again
               </button>
               <button
                 onClick={() => window.location.reload()}
-                className="rounded-lg bg-[#191D29] px-5 py-2.5 font-medium hover:bg-[#232838]"
+                className="rounded-lg bg-[#241A15] px-5 py-2.5 font-medium hover:bg-[#2E2119]"
               >
                 Reload page
               </button>
@@ -221,7 +222,7 @@ function Overlay({
       onClick={onClose}
     >
       <div
-        className={`w-full ${maxWidth} rounded-2xl border border-[#262B3A] bg-[#131620] shadow-2xl shadow-black/50`}
+        className={`w-full ${maxWidth} rounded-2xl border border-[#35251E] bg-[#1C1310] shadow-2xl shadow-black/50`}
         onClick={(e) => e.stopPropagation()}
       >
         {children}
@@ -243,6 +244,135 @@ function PriorityBadge({ priority }: { priority: Priority }) {
       />
       {cfg.label}
     </span>
+  );
+}
+
+/**
+ * Custom themed dropdown — replaces native <select> so it can match the
+ * app's dark/orange styling exactly (native selects can't be restyled
+ * consistently across browsers).
+ */
+interface DropdownOption<T extends string> {
+  value: T;
+  label: string;
+}
+
+function Dropdown<T extends string>({
+  value,
+  onChange,
+  options,
+  disabled,
+  ariaLabel,
+  className = "",
+}: {
+  value: T;
+  onChange: (value: T) => void;
+  options: DropdownOption<T>[];
+  disabled?: boolean;
+  ariaLabel?: string;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onClickOutside = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+
+    document.addEventListener("mousedown", onClickOutside);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const selected = options.find((o) => o.value === value);
+
+  return (
+    <div ref={rootRef} className={`relative ${className}`}>
+      <button
+        type="button"
+        onClick={() => !disabled && setOpen((o) => !o)}
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={ariaLabel}
+        className={`flex w-full items-center justify-between gap-2 rounded-xl border bg-[#1C1310] px-4 py-2.5 text-left text-sm outline-none transition disabled:cursor-not-allowed disabled:opacity-50 ${
+          open ? "border-[#FF7A29]" : "border-[#35251E] hover:border-[#4A3226]"
+        }`}
+      >
+        <span className="truncate text-[#F5EBE3]">
+          {selected?.label ?? "Select"}
+        </span>
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 12 12"
+          fill="none"
+          className={`shrink-0 text-[#A4897C] transition-transform ${
+            open ? "rotate-180" : ""
+          }`}
+        >
+          <path
+            d="M2.5 4.5L6 8L9.5 4.5"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          className="absolute z-20 mt-1.5 w-full min-w-max overflow-hidden rounded-xl border border-[#35251E] bg-[#1C1310] py-1 shadow-2xl shadow-black/50"
+        >
+          {options.map((opt) => {
+            const active = opt.value === value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                role="option"
+                aria-selected={active}
+                onClick={() => {
+                  onChange(opt.value);
+                  setOpen(false);
+                }}
+                className={`flex w-full items-center justify-between gap-6 px-4 py-2.5 text-left text-sm transition ${
+                  active
+                    ? "bg-[#FF7A29]/12 text-[#FF7A29]"
+                    : "text-[#D8C7BC] hover:bg-[#241A15]"
+                }`}
+              >
+                {opt.label}
+                {active && (
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path
+                      d="M3 7.5L5.5 10L11 4"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -484,32 +614,39 @@ function AppContent() {
   const bannerMessage = configError ?? error;
 
   return (
-    <div className="min-h-screen bg-[#0B0D12] font-[Inter] text-[#E7E9EE]">
+    <div className="min-h-screen bg-[#120C09] font-[Inter] text-[#F5EBE3]">
       <div className="mx-auto max-w-5xl px-6 py-12">
         {/* Header */}
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="font-[Sora] text-3xl font-bold tracking-tight">
-              Todo
-            </h1>
-            <p className="mt-1 text-sm text-[#8A90A6]">
-              {configError
-                ? "Not connected"
-                : `${total} ${total === 1 ? "task" : "tasks"} total`}
-            </p>
+          <div className="flex items-center gap-3">
+            <img
+              src="/favicon.png"
+              alt="Todo logo"
+              className="h-16 w-16 shrink-0 rounded-xl object-cover shadow-lg shadow-[#FF7A29]/30"
+            />
+            <div>
+              <h1 className="font-[Sora] text-3xl font-bold tracking-tight">
+                Todo
+              </h1>
+              <p className="mt-0.5 text-sm text-[#A4897C]">
+                {configError
+                  ? "Not connected"
+                  : `${total} ${total === 1 ? "task" : "tasks"} total`}
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
             {/* View toggle */}
-            <div className="flex rounded-xl border border-[#262B3A] bg-[#131620] p-1">
+            <div className="flex rounded-xl border border-[#35251E] bg-[#1C1310] p-1">
               <button
                 onClick={() => setView("list")}
                 aria-label="List view"
                 aria-pressed={view === "list"}
                 className={`rounded-lg p-2 transition ${
                   view === "list"
-                    ? "bg-[#191D29] text-white"
-                    : "text-[#5C6278] hover:text-[#8A90A6]"
+                    ? "bg-[#FF7A29]/15 text-[#FF7A29]"
+                    : "text-[#6B5348] hover:text-[#A4897C]"
                 }`}
               >
                 <svg
@@ -551,8 +688,8 @@ function AppContent() {
                 aria-pressed={view === "card"}
                 className={`rounded-lg p-2 transition ${
                   view === "card"
-                    ? "bg-[#191D29] text-white"
-                    : "text-[#5C6278] hover:text-[#8A90A6]"
+                    ? "bg-[#FF7A29]/15 text-[#FF7A29]"
+                    : "text-[#6B5348] hover:text-[#A4897C]"
                 }`}
               >
                 <svg
@@ -601,7 +738,7 @@ function AppContent() {
             <button
               onClick={openAddModal}
               disabled={!!configError || isOffline}
-              className="flex items-center gap-2 rounded-xl bg-[#7C6CF0] px-4 py-2.5 font-medium text-white shadow-lg shadow-[#7C6CF0]/20 transition hover:bg-[#6c5ce0] disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex items-center gap-2 rounded-xl bg-gradient-to-br from-[#FF8C42] to-[#E0621A] px-4 py-2.5 font-medium text-[#120C09] shadow-lg shadow-[#FF7A29]/25 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <span className="text-lg leading-none">+</span> New task
             </button>
@@ -610,10 +747,10 @@ function AppContent() {
 
         {/* Offline banner */}
         {!configError && isOffline && (
-          <div className="mb-6 flex items-center gap-3 rounded-xl border border-[#3A3420] bg-[#211D10] p-4 text-sm text-[#E8C77A]">
+          <div className="mb-6 flex items-center gap-3 rounded-xl border border-[rgba(245,196,81,0.28)] bg-[rgba(245,196,81,0.10)] p-4 text-sm text-[#F5C451]">
             <span
               className="h-2 w-2 shrink-0 rounded-full"
-              style={{ backgroundColor: "#E8C77A" }}
+              style={{ backgroundColor: "#F5C451" }}
             />
             <span>
               You're offline — showing your last synced tasks. Adding, editing,
@@ -624,20 +761,20 @@ function AppContent() {
 
         {/* Error banner */}
         {bannerMessage && (
-          <div className="mb-6 flex items-start justify-between gap-4 rounded-xl border border-[#3A2430] bg-[#211018] p-4 text-sm text-[#F2A5AC]">
+          <div className="mb-6 flex items-start justify-between gap-4 rounded-xl border border-[rgba(255,90,82,0.28)] bg-[rgba(255,90,82,0.10)] p-4 text-sm text-[#FFB3AC]">
             <span>{bannerMessage}</span>
             <div className="flex shrink-0 gap-2">
               {!configError && (
                 <button
                   onClick={fetchTodos}
-                  className="rounded-lg bg-[#3A2430] px-3 py-1 font-medium hover:bg-[#4a2c3b]"
+                  className="rounded-lg bg-[rgba(255,90,82,0.18)] px-3 py-1 font-medium hover:bg-[rgba(255,90,82,0.28)]"
                 >
                   Retry
                 </button>
               )}
               <button
                 onClick={() => setError(null)}
-                className="rounded px-2 py-1 text-[#F2A5AC] hover:text-white"
+                className="rounded px-2 py-1 text-[#FFB3AC] hover:text-white"
                 aria-label="Dismiss error"
               >
                 ✕
@@ -657,47 +794,51 @@ function AppContent() {
               setPage(1);
             }}
             disabled={!!configError}
-            className="flex-1 rounded-xl border border-[#262B3A] bg-[#131620] px-4 py-2.5 text-sm outline-none transition focus:border-[#7C6CF0] disabled:opacity-50"
+            className="flex-1 rounded-xl border border-[#35251E] bg-[#1C1310] px-4 py-2.5 text-sm outline-none transition focus:border-[#FF7A29] disabled:opacity-50"
           />
 
-          <select
+          <Dropdown
             value={status}
-            onChange={(e) => {
-              setStatus(e.target.value);
+            onChange={(v) => {
+              setStatus(v);
               setPage(1);
             }}
             disabled={!!configError}
-            className="rounded-xl border border-[#262B3A] bg-[#131620] px-4 py-2.5 text-sm outline-none disabled:opacity-50"
-          >
-            <option value="all">All statuses</option>
-            <option value="completed">Completed</option>
-            <option value="pending">Pending</option>
-          </select>
+            ariaLabel="Filter by status"
+            className="md:w-44"
+            options={[
+              { value: "all", label: "All statuses" },
+              { value: "completed", label: "Completed" },
+              { value: "pending", label: "Pending" },
+            ]}
+          />
 
-          <select
+          <Dropdown
             value={priorityFilter}
-            onChange={(e) => {
-              setPriorityFilter(e.target.value);
+            onChange={(v) => {
+              setPriorityFilter(v);
               setPage(1);
             }}
             disabled={!!configError}
-            className="rounded-xl border border-[#262B3A] bg-[#131620] px-4 py-2.5 text-sm outline-none disabled:opacity-50"
-          >
-            <option value="all">All priorities</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
-          </select>
+            ariaLabel="Filter by priority"
+            className="md:w-44"
+            options={[
+              { value: "all", label: "All priorities" },
+              { value: "high", label: "High" },
+              { value: "medium", label: "Medium" },
+              { value: "low", label: "Low" },
+            ]}
+          />
         </div>
 
         {/* Todo List */}
         {configError ? null : loading ? (
-          <div className="rounded-xl border border-[#262B3A] bg-[#131620] p-8 text-center text-sm text-[#8A90A6]">
+          <div className="rounded-xl border border-[#35251E] bg-[#1C1310] p-8 text-center text-sm text-[#A4897C]">
             Loading...
           </div>
         ) : todos.length === 0 ? (
-          <div className="rounded-xl border border-[#262B3A] bg-[#131620] p-8 text-center">
-            <p className="text-sm text-[#8A90A6]">
+          <div className="rounded-xl border border-[#35251E] bg-[#1C1310] p-8 text-center">
+            <p className="text-sm text-[#A4897C]">
               {search || status !== "all" || priorityFilter !== "all"
                 ? "No tasks match your filters."
                 : "No tasks yet. Add your first one."}
@@ -713,7 +854,7 @@ function AppContent() {
               return (
                 <div
                   key={todo._id}
-                  className="group flex gap-3 rounded-xl border border-[#262B3A] bg-[#131620] p-4 transition hover:border-[#333a4d]"
+                  className="group flex gap-3 rounded-xl border border-[#35251E] bg-[#1C1310] p-4 transition hover:border-[#4A3226]"
                 >
                   <div
                     className="w-1 shrink-0 rounded-full"
@@ -725,9 +866,9 @@ function AppContent() {
                     disabled={isOffline}
                     className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition disabled:cursor-not-allowed disabled:opacity-50"
                     style={{
-                      borderColor: todo.completed ? "#34C77B" : "#3A3F51",
+                      borderColor: todo.completed ? "#4CD97B" : "#4A3226",
                       backgroundColor: todo.completed
-                        ? "#34C77B"
+                        ? "#4CD97B"
                         : "transparent",
                     }}
                     aria-label={
@@ -735,7 +876,7 @@ function AppContent() {
                     }
                   >
                     {todo.completed && (
-                      <span className="text-xs leading-none text-[#0B0D12]">
+                      <span className="text-xs leading-none text-[#120C09]">
                         ✓
                       </span>
                     )}
@@ -746,8 +887,8 @@ function AppContent() {
                       <h3
                         className={`font-medium ${
                           todo.completed
-                            ? "text-[#5C6278] line-through"
-                            : "text-[#E7E9EE]"
+                            ? "text-[#6B5348] line-through"
+                            : "text-[#F5EBE3]"
                         }`}
                       >
                         {todo.title}
@@ -759,21 +900,21 @@ function AppContent() {
                       <p
                         className={`mt-1 text-sm ${
                           todo.completed
-                            ? "text-[#4A5064] line-through"
-                            : "text-[#8A90A6]"
+                            ? "text-[#5C4A3F] line-through"
+                            : "text-[#A4897C]"
                         }`}
                       >
                         {todo.description}
                       </p>
                     )}
 
-                    <div className="mt-2 flex flex-wrap items-center gap-3 font-[JetBrains_Mono] text-xs text-[#5C6278]">
+                    <div className="mt-2 flex flex-wrap items-center gap-3 font-[JetBrains_Mono] text-xs text-[#6B5348]">
                       <span>{formatDate(todo.createdAt)}</span>
                       {due && (
                         <span
                           className={
                             overdue
-                              ? "rounded bg-[#3A2430] px-1.5 py-0.5 text-[#F2A5AC]"
+                              ? "rounded bg-[rgba(255,90,82,0.15)] px-1.5 py-0.5 text-[#FFB3AC]"
                               : ""
                           }
                         >
@@ -788,7 +929,7 @@ function AppContent() {
                     <button
                       onClick={() => openEditModal(todo)}
                       disabled={isOffline}
-                      className="rounded-lg px-2.5 py-1.5 text-sm text-[#8A90A6] hover:bg-[#191D29] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-lg px-2.5 py-1.5 text-sm text-[#A4897C] hover:bg-[#241A15] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                       aria-label="Edit task"
                     >
                       Edit
@@ -796,7 +937,7 @@ function AppContent() {
                     <button
                       onClick={() => setDeleteTarget(todo)}
                       disabled={isOffline}
-                      className="rounded-lg px-2.5 py-1.5 text-sm text-[#8A90A6] hover:bg-[#3A2430] hover:text-[#F2A5AC] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-lg px-2.5 py-1.5 text-sm text-[#A4897C] hover:bg-[rgba(255,90,82,0.15)] hover:text-[#FFB3AC] disabled:cursor-not-allowed disabled:opacity-50"
                       aria-label="Delete task"
                     >
                       Delete
@@ -816,7 +957,7 @@ function AppContent() {
               return (
                 <div
                   key={todo._id}
-                  className="flex flex-col rounded-2xl border border-[#262B3A] bg-[#131620] p-5 transition hover:border-[#333a4d]"
+                  className="flex flex-col rounded-2xl border border-[#35251E] bg-[#1C1310] p-5 transition hover:border-[#4A3226]"
                   style={{ borderTopColor: cfg.color, borderTopWidth: 3 }}
                 >
                   <div className="mb-3 flex items-start justify-between gap-2">
@@ -826,9 +967,9 @@ function AppContent() {
                       disabled={isOffline}
                       className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition disabled:cursor-not-allowed disabled:opacity-50"
                       style={{
-                        borderColor: todo.completed ? "#34C77B" : "#3A3F51",
+                        borderColor: todo.completed ? "#4CD97B" : "#4A3226",
                         backgroundColor: todo.completed
-                          ? "#34C77B"
+                          ? "#4CD97B"
                           : "transparent",
                       }}
                       aria-label={
@@ -836,7 +977,7 @@ function AppContent() {
                       }
                     >
                       {todo.completed && (
-                        <span className="text-xs leading-none text-[#0B0D12]">
+                        <span className="text-xs leading-none text-[#120C09]">
                           ✓
                         </span>
                       )}
@@ -846,8 +987,8 @@ function AppContent() {
                   <h3
                     className={`font-medium ${
                       todo.completed
-                        ? "text-[#5C6278] line-through"
-                        : "text-[#E7E9EE]"
+                        ? "text-[#6B5348] line-through"
+                        : "text-[#F5EBE3]"
                     }`}
                   >
                     {todo.title}
@@ -857,8 +998,8 @@ function AppContent() {
                     <p
                       className={`mt-1.5 line-clamp-3 text-sm ${
                         todo.completed
-                          ? "text-[#4A5064] line-through"
-                          : "text-[#8A90A6]"
+                          ? "text-[#5C4A3F] line-through"
+                          : "text-[#A4897C]"
                       }`}
                     >
                       {todo.description}
@@ -866,12 +1007,12 @@ function AppContent() {
                   )}
 
                   <div className="mt-4 flex flex-1 items-end justify-between gap-2">
-                    <div className="font-[JetBrains_Mono] text-xs text-[#5C6278]">
+                    <div className="font-[JetBrains_Mono] text-xs text-[#6B5348]">
                       {due && (
                         <span
                           className={
                             overdue
-                              ? "rounded bg-[#3A2430] px-1.5 py-0.5 text-[#F2A5AC]"
+                              ? "rounded bg-[rgba(255,90,82,0.15)] px-1.5 py-0.5 text-[#FFB3AC]"
                               : ""
                           }
                         >
@@ -885,7 +1026,7 @@ function AppContent() {
                       <button
                         onClick={() => openEditModal(todo)}
                         disabled={isOffline}
-                        className="rounded-lg px-2 py-1 text-xs text-[#8A90A6] hover:bg-[#191D29] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                        className="rounded-lg px-2 py-1 text-xs text-[#A4897C] hover:bg-[#241A15] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                         aria-label="Edit task"
                       >
                         Edit
@@ -893,7 +1034,7 @@ function AppContent() {
                       <button
                         onClick={() => setDeleteTarget(todo)}
                         disabled={isOffline}
-                        className="rounded-lg px-2 py-1 text-xs text-[#8A90A6] hover:bg-[#3A2430] hover:text-[#F2A5AC] disabled:cursor-not-allowed disabled:opacity-50"
+                        className="rounded-lg px-2 py-1 text-xs text-[#A4897C] hover:bg-[rgba(255,90,82,0.15)] hover:text-[#FFB3AC] disabled:cursor-not-allowed disabled:opacity-50"
                         aria-label="Delete task"
                       >
                         Delete
@@ -909,34 +1050,31 @@ function AppContent() {
         {/* Pagination */}
         {!configError && todos.length > 0 && (
           <div className="mt-8 flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-2 text-sm text-[#8A90A6]">
+            <div className="flex items-center gap-2 text-sm text-[#A4897C]">
               <span>
                 Showing {(page - 1) * limit + 1}–{Math.min(page * limit, total)}{" "}
                 of {total}
               </span>
 
-              <select
-                value={limit}
-                onChange={(e) => {
-                  setLimit(Number(e.target.value));
+              <Dropdown
+                value={String(limit)}
+                onChange={(v) => {
+                  setLimit(Number(v));
                   setPage(1);
                 }}
-                className="rounded-lg border border-[#262B3A] bg-[#131620] px-2 py-1.5 text-sm outline-none"
-                aria-label="Tasks per page"
-              >
-                {PAGE_SIZE_OPTIONS.map((n) => (
-                  <option key={n} value={n}>
-                    {n} / page
-                  </option>
-                ))}
-              </select>
+                ariaLabel="Tasks per page"
+                options={PAGE_SIZE_OPTIONS.map((n) => ({
+                  value: String(n),
+                  label: `${n} / page`,
+                }))}
+              />
             </div>
 
             <div className="flex items-center gap-1">
               <button
                 disabled={page === 1 || loading}
                 onClick={() => setPage(1)}
-                className="rounded-lg border border-[#262B3A] bg-[#131620] px-3 py-2 text-sm disabled:opacity-40"
+                className="rounded-lg border border-[#35251E] bg-[#1C1310] px-3 py-2 text-sm disabled:opacity-40"
                 aria-label="First page"
               >
                 «
@@ -944,7 +1082,7 @@ function AppContent() {
               <button
                 disabled={page === 1 || loading}
                 onClick={() => setPage((prev) => prev - 1)}
-                className="rounded-lg border border-[#262B3A] bg-[#131620] px-3 py-2 text-sm disabled:opacity-40"
+                className="rounded-lg border border-[#35251E] bg-[#1C1310] px-3 py-2 text-sm disabled:opacity-40"
                 aria-label="Previous page"
               >
                 ‹
@@ -954,7 +1092,7 @@ function AppContent() {
                 p === "…" ? (
                   <span
                     key={`ellipsis-${i}`}
-                    className="px-2 text-sm text-[#5C6278]"
+                    className="px-2 text-sm text-[#6B5348]"
                   >
                     …
                   </span>
@@ -965,8 +1103,8 @@ function AppContent() {
                     onClick={() => setPage(p)}
                     className={`min-w-[2.25rem] rounded-lg border px-3 py-2 text-sm transition disabled:opacity-40 ${
                       p === page
-                        ? "border-[#7C6CF0] bg-[#7C6CF0]/15 text-[#7C6CF0]"
-                        : "border-[#262B3A] bg-[#131620] text-[#8A90A6] hover:text-white"
+                        ? "border-[#FF7A29] bg-[#FF7A29]/15 text-[#FF7A29]"
+                        : "border-[#35251E] bg-[#1C1310] text-[#A4897C] hover:text-white"
                     }`}
                   >
                     {p}
@@ -977,7 +1115,7 @@ function AppContent() {
               <button
                 disabled={page === totalPages || loading}
                 onClick={() => setPage((prev) => prev + 1)}
-                className="rounded-lg border border-[#262B3A] bg-[#131620] px-3 py-2 text-sm disabled:opacity-40"
+                className="rounded-lg border border-[#35251E] bg-[#1C1310] px-3 py-2 text-sm disabled:opacity-40"
                 aria-label="Next page"
               >
                 ›
@@ -985,7 +1123,7 @@ function AppContent() {
               <button
                 disabled={page === totalPages || loading}
                 onClick={() => setPage(totalPages)}
-                className="rounded-lg border border-[#262B3A] bg-[#131620] px-3 py-2 text-sm disabled:opacity-40"
+                className="rounded-lg border border-[#35251E] bg-[#1C1310] px-3 py-2 text-sm disabled:opacity-40"
                 aria-label="Last page"
               >
                 »
@@ -1004,14 +1142,14 @@ function AppContent() {
             </h2>
 
             {formError && (
-              <div className="mb-4 rounded-lg border border-[#3A2430] bg-[#211018] px-3 py-2 text-sm text-[#F2A5AC]">
+              <div className="mb-4 rounded-lg border border-[rgba(255,90,82,0.28)] bg-[rgba(255,90,82,0.10)] px-3 py-2 text-sm text-[#FFB3AC]">
                 {formError}
               </div>
             )}
 
             <div className="space-y-4">
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-[#8A90A6]">
+                <label className="mb-1.5 block text-xs font-medium text-[#A4897C]">
                   Title
                 </label>
                 <input
@@ -1020,12 +1158,12 @@ function AppContent() {
                   value={formTitle}
                   onChange={(e) => setFormTitle(e.target.value)}
                   placeholder="What needs to be done?"
-                  className="w-full rounded-xl border border-[#262B3A] bg-[#0B0D12] px-4 py-2.5 text-sm outline-none focus:border-[#7C6CF0]"
+                  className="w-full rounded-xl border border-[#35251E] bg-[#120C09] px-4 py-2.5 text-sm outline-none focus:border-[#FF7A29]"
                 />
               </div>
 
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-[#8A90A6]">
+                <label className="mb-1.5 block text-xs font-medium text-[#A4897C]">
                   Description
                 </label>
                 <textarea
@@ -1033,13 +1171,13 @@ function AppContent() {
                   onChange={(e) => setFormDescription(e.target.value)}
                   placeholder="Add more detail (optional)"
                   rows={3}
-                  className="w-full resize-none rounded-xl border border-[#262B3A] bg-[#0B0D12] px-4 py-2.5 text-sm outline-none focus:border-[#7C6CF0]"
+                  className="w-full resize-none rounded-xl border border-[#35251E] bg-[#120C09] px-4 py-2.5 text-sm outline-none focus:border-[#FF7A29]"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1.5 block text-xs font-medium text-[#8A90A6]">
+                  <label className="mb-1.5 block text-xs font-medium text-[#A4897C]">
                     Priority
                   </label>
                   <div className="flex gap-1.5">
@@ -1053,9 +1191,9 @@ function AppContent() {
                           onClick={() => setFormPriority(p)}
                           className="flex-1 rounded-lg border px-2 py-2 text-xs font-medium transition"
                           style={{
-                            borderColor: active ? cfg.color : "#262B3A",
+                            borderColor: active ? cfg.color : "#35251E",
                             backgroundColor: active ? cfg.bg : "transparent",
-                            color: active ? cfg.color : "#8A90A6",
+                            color: active ? cfg.color : "#A4897C",
                           }}
                         >
                           {cfg.label}
@@ -1066,14 +1204,14 @@ function AppContent() {
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-xs font-medium text-[#8A90A6]">
+                  <label className="mb-1.5 block text-xs font-medium text-[#A4897C]">
                     Due date
                   </label>
                   <input
                     type="date"
                     value={formDueDate}
                     onChange={(e) => setFormDueDate(e.target.value)}
-                    className="w-full rounded-xl border border-[#262B3A] bg-[#0B0D12] px-3 py-2.5 text-sm outline-none focus:border-[#7C6CF0] [color-scheme:dark]"
+                    className="w-full rounded-xl border border-[#35251E] bg-[#120C09] px-3 py-2.5 text-sm outline-none focus:border-[#FF7A29] [color-scheme:dark]"
                   />
                 </div>
               </div>
@@ -1083,14 +1221,14 @@ function AppContent() {
               <button
                 onClick={closeModal}
                 disabled={submitting}
-                className="rounded-xl px-4 py-2.5 text-sm font-medium text-[#8A90A6] hover:bg-[#191D29] hover:text-white disabled:opacity-50"
+                className="rounded-xl px-4 py-2.5 text-sm font-medium text-[#A4897C] hover:bg-[#241A15] hover:text-white disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={submitForm}
                 disabled={submitting || !formTitle.trim()}
-                className="rounded-xl bg-[#7C6CF0] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#6c5ce0] disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-xl bg-gradient-to-br from-[#FF8C42] to-[#E0621A] px-5 py-2.5 text-sm font-medium text-[#120C09] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {submitting
                   ? "Saving..."
@@ -1111,7 +1249,7 @@ function AppContent() {
         >
           <div className="p-6">
             <h2 className="mb-2 font-[Sora] text-lg font-bold">Delete task?</h2>
-            <p className="mb-6 text-sm text-[#8A90A6]">
+            <p className="mb-6 text-sm text-[#A4897C]">
               "{deleteTarget.title}" will be permanently removed. This can't be
               undone.
             </p>
@@ -1119,14 +1257,14 @@ function AppContent() {
               <button
                 onClick={() => setDeleteTarget(null)}
                 disabled={deleting}
-                className="rounded-xl px-4 py-2.5 text-sm font-medium text-[#8A90A6] hover:bg-[#191D29] hover:text-white disabled:opacity-50"
+                className="rounded-xl px-4 py-2.5 text-sm font-medium text-[#A4897C] hover:bg-[#241A15] hover:text-white disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDelete}
                 disabled={deleting}
-                className="rounded-xl bg-[#E5484D] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#d33f44] disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-xl bg-[#FF5A52] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#E0453D] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {deleting ? "Deleting..." : "Delete"}
               </button>
