@@ -8,5 +8,5 @@ resource "aws_eip" "main" {
 
 resource "aws_eip_association" "main" {
   allocation_id = aws_eip.main.id
-  instance_id   = aws_instance.main.id
+  instance_id   = aws_instance.controller.id
 }
