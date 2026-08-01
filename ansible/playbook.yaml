@@ -1,3 +1,4 @@
 ---
 - import_playbook: controller.yaml
 - import_playbook: workers.yaml
+- import_playbook: deploy-app.yaml

@@ -1,0 +1,76 @@
+---
+- name: Deploy Applications
+  hosts: k3s_controller
+  become: true
+
+  vars_files:
+    - secrets.yml
+
+  environment:
+    KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+
+  tasks:
+
+    # --------------------------------------------------
+    # ArgoCD Admin Password
+    # --------------------------------------------------
+
+    - name: Generate ArgoCD admin password hash
+      command: htpasswd -nbBC 10 "" "{{ argocd_admin_password }}"
+      register: argocd_password_hash
+      changed_when: false
+
+    # --------------------------------------------------
+    # ArgoCD
+    # --------------------------------------------------
+
+    - name: Install ArgoCD
+      command:
+        argv:
+          - helm
+          - upgrade
+          - --install
+          - argocd
+          - argo/argo-cd
+          - --namespace
+          - argocd
+          - --create-namespace
+          - --set-string
+          - "configs.secret.argocdServerAdminPassword={{ argocd_password_hash.stdout.split(':', 1)[1] }}"
+          - --wait
+          - --timeout
+          - 10m
+
+    # --------------------------------------------------
+    # Bootstrap Todo App
+    # --------------------------------------------------
+
+    - name: Copy ArgoCD Application manifest
+      copy:
+        src: ../argocd/todo-app.yaml
+        dest: /tmp/todo-app.yaml
+
+    - name: Bootstrap Todo App in ArgoCD
+      command: kubectl apply -f /tmp/todo-app.yaml
+
+    # --------------------------------------------------
+    # Verify
+    # --------------------------------------------------
+
+    - name: Get Kubernetes nodes
+      command: kubectl get nodes
+      register: nodes
+      changed_when: false
+
+    - name: Show Kubernetes nodes
+      debug:
+        var: nodes.stdout_lines
+
+    - name: Get all pods
+      command: kubectl get pods -A
+      register: pods
+      changed_when: false
+
+    - name: Show all pods
+      debug:
+        var: pods.stdout_lines

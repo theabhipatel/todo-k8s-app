@@ -40,6 +40,14 @@ resource "aws_security_group" "main" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  ingress {
+  description = "Kubernetes API Server"
+  from_port = 6443
+  to_port   = 6443
+  protocol  = "tcp"
+  self = true
+}
+
   egress {
     from_port   = 0
     to_port     = 0

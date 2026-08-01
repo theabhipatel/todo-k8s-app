@@ -53,6 +53,15 @@
       command: kubectl wait --for=condition=Ready node --all --timeout=300s
       changed_when: false
 
+    - name: Get controller private IP
+      set_fact:
+        controller_private_ip: "{{ ansible_default_ipv4.address }}"
+
+    - name: Get k3s node join token
+      command: cat /var/lib/rancher/k3s/server/node-token
+      register: k3s_join_token
+      changed_when: false
+      
     # --------------------------------------------------
     # Helm
     # --------------------------------------------------
@@ -206,65 +215,20 @@
           --overwrite
 
     # --------------------------------------------------
-    # ArgoCD Admin Password
+    # Controller Scheduling
     # --------------------------------------------------
 
-    - name: Generate ArgoCD admin password hash
-      command: htpasswd -nbBC 10 "" "{{ argocd_admin_password }}"
-      register: argocd_password_hash
+    - name: Get controller node name
+      command: kubectl get nodes -l node-role.kubernetes.io/control-plane=true -o jsonpath='{.items[0].metadata.name}'
+      register: controller_node_name
       changed_when: false
 
-    # --------------------------------------------------
-    # ArgoCD
-    # --------------------------------------------------
-
-    - name: Install ArgoCD
-      command:
-        argv:
-          - helm
-          - upgrade
-          - --install
-          - argocd
-          - argo/argo-cd
-          - --namespace
-          - argocd
-          - --create-namespace
-          - --set-string
-          - "configs.secret.argocdServerAdminPassword={{ argocd_password_hash.stdout.split(':', 1)[1] }}"
-          - --wait
-          - --timeout
-          - 10m
-
-    # --------------------------------------------------
-    # Bootstrap ArgoCD Application
-    # --------------------------------------------------
-
-    - name: Copy ArgoCD Application manifest
-      copy:
-        src: ../argocd/todo-app.yaml
-        dest: /tmp/todo-app.yaml
-
-    - name: Bootstrap Todo App in ArgoCD
-      command: kubectl apply -f /tmp/todo-app.yaml
-      
-    # --------------------------------------------------
-    # Verify
-    # --------------------------------------------------
-
-    - name: Get Kubernetes nodes
-      command: kubectl get nodes
-      register: nodes
-      changed_when: false
-
-    - name: Show Kubernetes nodes
-      debug:
-        var: nodes.stdout_lines
-
-    - name: Get all pods
-      command: kubectl get pods -A
-      register: pods
-      changed_when: false
-
-    - name: Show all pods
-      debug:
-        var: pods.stdout_lines
+    - name: Prevent workloads from running on controller
+      command: >
+        kubectl taint nodes
+        {{ controller_node_name.stdout }}
+        node-role.kubernetes.io/control-plane=true:NoSchedule
+      register: taint_result
+      failed_when: false
+      changed_when: "'tainted' in taint_result.stdout"
+  
