@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: itheabhipatel/todo-backend-live:c955b8baf24ebbf837ba739d89199f8d6cae0e4a
+          image: itheabhipatel/todo-backend-live:4556f1e63897150a264ff63cd55d4040dfd2d682
           ports:
             - containerPort: 3100
           envFrom:
