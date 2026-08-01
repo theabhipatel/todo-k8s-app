@@ -3,9 +3,22 @@ variable "aws_region" {
   type        = string
 }
 
-variable "instance_type" {
-  type    = string
-  default = "t3.large"
+variable "controller_instance_type" {
+  description = "EC2 instance type for the controller"
+  type        = string
+  default     = "t3.large"
+}
+
+variable "worker_instance_type" {
+  description = "EC2 instance type for worker nodes"
+  type        = string
+  default     = "t3.large"
+}
+
+variable "worker_count" {
+  description = "Number of Kubernetes worker nodes"
+  type        = number
+  default     = 2
 }
 
 variable "key_name" {
