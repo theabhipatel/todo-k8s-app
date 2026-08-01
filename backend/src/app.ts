@@ -3,6 +3,14 @@ import Todo from "./todo.model";
 
 const router = Router();
 
+type Priority = "low" | "medium" | "high";
+
+const PRIORITIES: readonly Priority[] = ["low", "medium", "high"];
+
+function isPriority(value: string): value is Priority {
+  return (PRIORITIES as readonly string[]).includes(value);
+}
+
 /**
  * GET /todos
  * Search + Filter + Pagination
@@ -14,6 +22,7 @@ router.get("/", async (req, res) => {
 
     const search = String(req.query.search || "");
     const status = String(req.query.status || "all");
+    const priority = String(req.query.priority || "all");
 
     const query: {
       title?: {
@@ -21,6 +30,7 @@ router.get("/", async (req, res) => {
         $options: string;
       };
       completed?: boolean;
+      priority?: Priority;
     } = {};
 
     // Search
@@ -31,13 +41,18 @@ router.get("/", async (req, res) => {
       };
     }
 
-    // Filter
+    // Filter by status
     if (status === "completed") {
       query.completed = true;
     }
 
     if (status === "pending") {
       query.completed = false;
+    }
+
+    // Filter by priority
+    if (isPriority(priority)) {
+      query.priority = priority;
     }
 
     const total = await Todo.countDocuments(query);
@@ -100,7 +115,7 @@ router.get("/:id", async (req, res) => {
  */
 router.post("/", async (req, res) => {
   try {
-    const { title } = req.body;
+    const { title, description, priority, dueDate } = req.body;
 
     if (!title?.trim()) {
       return res.status(400).json({
@@ -109,8 +124,18 @@ router.post("/", async (req, res) => {
       });
     }
 
+    if (priority && !["low", "medium", "high"].includes(priority)) {
+      return res.status(400).json({
+        success: false,
+        message: "Priority must be low, medium, or high",
+      });
+    }
+
     const todo = await Todo.create({
       title: title.trim(),
+      description: description?.trim() || "",
+      priority: priority || "medium",
+      dueDate: dueDate || null,
     });
 
     res.status(201).json({
@@ -133,12 +158,22 @@ router.post("/", async (req, res) => {
  */
 router.put("/:id", async (req, res) => {
   try {
-    const { title, completed } = req.body;
+    const { title, description, priority, dueDate, completed } = req.body;
+
+    if (priority && !["low", "medium", "high"].includes(priority)) {
+      return res.status(400).json({
+        success: false,
+        message: "Priority must be low, medium, or high",
+      });
+    }
 
     const todo = await Todo.findByIdAndUpdate(
       req.params.id,
       {
         ...(title !== undefined && { title }),
+        ...(description !== undefined && { description }),
+        ...(priority !== undefined && { priority }),
+        ...(dueDate !== undefined && { dueDate }),
         ...(completed !== undefined && { completed }),
       },
       {

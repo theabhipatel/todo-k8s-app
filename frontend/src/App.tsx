@@ -8,9 +8,14 @@ import {
 
 const API_URL = import.meta.env.VITE_API_URL as string | undefined;
 
+type Priority = "low" | "medium" | "high";
+
 interface Todo {
   _id: string;
   title: string;
+  description: string;
+  priority: Priority;
+  dueDate: string | null;
   completed: boolean;
   createdAt: string;
   updatedAt: string;
@@ -26,6 +31,30 @@ interface TodoResponse {
     totalPages: number;
   };
 }
+
+const PRIORITY_CONFIG: Record<
+  Priority,
+  { label: string; color: string; bg: string; border: string }
+> = {
+  high: {
+    label: "High",
+    color: "#F2555B",
+    bg: "rgba(242,85,91,0.12)",
+    border: "rgba(242,85,91,0.35)",
+  },
+  medium: {
+    label: "Medium",
+    color: "#F0A93A",
+    bg: "rgba(240,169,58,0.12)",
+    border: "rgba(240,169,58,0.35)",
+  },
+  low: {
+    label: "Low",
+    color: "#34C77B",
+    bg: "rgba(52,199,123,0.12)",
+    border: "rgba(52,199,123,0.35)",
+  },
+};
 
 /** Turns any thrown value into a readable string. */
 function getErrorMessage(err: unknown): string {
@@ -70,6 +99,19 @@ async function safeFetchJson<T>(
   }
 }
 
+/** Injects the Sora / Inter / JetBrains Mono font families once per document. */
+function useProductFonts() {
+  useEffect(() => {
+    if (document.getElementById("todo-app-fonts")) return;
+    const link = document.createElement("link");
+    link.id = "todo-app-fonts";
+    link.rel = "stylesheet";
+    link.href =
+      "https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap";
+    document.head.appendChild(link);
+  }, []);
+}
+
 /* ------------------------------------------------------------------ */
 /* Error boundary - catches render/runtime errors so the app shows a   */
 /* recoverable screen instead of going blank.                          */
@@ -101,20 +143,22 @@ class ErrorBoundary extends Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">
-          <div className="max-w-md rounded-lg border border-slate-800 bg-slate-900 p-8 text-center">
-            <h1 className="mb-2 text-2xl font-bold">Something went wrong</h1>
-            <p className="mb-6 text-sm text-slate-400">{this.state.message}</p>
+        <div className="flex min-h-screen items-center justify-center bg-[#0B0D12] px-6 text-white">
+          <div className="max-w-md rounded-2xl border border-[#262B3A] bg-[#131620] p-8 text-center">
+            <h1 className="mb-2 font-[Sora] text-2xl font-bold">
+              Something went wrong
+            </h1>
+            <p className="mb-6 text-sm text-[#8A90A6]">{this.state.message}</p>
             <div className="flex justify-center gap-3">
               <button
                 onClick={this.handleReset}
-                className="rounded-lg bg-blue-600 px-5 py-2.5 font-medium hover:bg-blue-500"
+                className="rounded-lg bg-[#7C6CF0] px-5 py-2.5 font-medium hover:bg-[#6c5ce0]"
               >
                 Try again
               </button>
               <button
                 onClick={() => window.location.reload()}
-                className="rounded-lg bg-slate-800 px-5 py-2.5 font-medium hover:bg-slate-700"
+                className="rounded-lg bg-[#191D29] px-5 py-2.5 font-medium hover:bg-[#232838]"
               >
                 Reload page
               </button>
@@ -129,25 +173,93 @@ class ErrorBoundary extends Component<
 }
 
 /* ------------------------------------------------------------------ */
+/* Small shared bits                                                    */
+/* ------------------------------------------------------------------ */
+
+/** Centered overlay shell shared by the add/edit modal and the delete-confirm popup. */
+function Overlay({
+  onClose,
+  children,
+  maxWidth = "max-w-lg",
+}: {
+  onClose: () => void;
+  children: ReactNode;
+  maxWidth?: string;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className={`w-full ${maxWidth} rounded-2xl border border-[#262B3A] bg-[#131620] shadow-2xl shadow-black/50`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function PriorityBadge({ priority }: { priority: Priority }) {
+  const cfg = PRIORITY_CONFIG[priority];
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
+      style={{ color: cfg.color, backgroundColor: cfg.bg }}
+    >
+      <span
+        className="h-1.5 w-1.5 rounded-full"
+        style={{ backgroundColor: cfg.color }}
+      />
+      {cfg.label}
+    </span>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Main app                                                             */
 /* ------------------------------------------------------------------ */
 
 function AppContent() {
+  useProductFonts();
+
   const [todos, setTodos] = useState<Todo[]>([]);
-  const [title, setTitle] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
+  const [priorityFilter, setPriorityFilter] = useState("all");
 
   const [page, setPage] = useState(1);
   const limit = 5;
 
   const [loading, setLoading] = useState(false);
   const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Add / edit modal state
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formTitle, setFormTitle] = useState("");
+  const [formDescription, setFormDescription] = useState("");
+  const [formPriority, setFormPriority] = useState<Priority>("medium");
+  const [formDueDate, setFormDueDate] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
+
+  // Delete confirmation state
+  const [deleteTarget, setDeleteTarget] = useState<Todo | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const configError = !API_URL
     ? "VITE_API_URL is not set, so the app can't reach the server. Check your .env file."
@@ -165,6 +277,7 @@ function AppContent() {
         limit: String(limit),
         search,
         status,
+        priority: priorityFilter,
       });
 
       const data = await safeFetchJson<TodoResponse>(
@@ -177,6 +290,7 @@ function AppContent() {
 
       setTodos(data.data);
       setTotalPages(data.pagination?.totalPages ?? 1);
+      setTotal(data.pagination?.total ?? data.data.length);
     } catch (err) {
       console.error(err);
       setError(getErrorMessage(err));
@@ -189,54 +303,78 @@ function AppContent() {
   useEffect(() => {
     fetchTodos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, search, status]);
+  }, [page, search, status, priorityFilter]);
 
-  const createTodo = async () => {
-    if (!title.trim() || !API_URL || submitting) return;
+  /* -------------------------- modal helpers -------------------------- */
+
+  const openAddModal = () => {
+    setEditingId(null);
+    setFormTitle("");
+    setFormDescription("");
+    setFormPriority("medium");
+    setFormDueDate("");
+    setFormError(null);
+    setModalOpen(true);
+  };
+
+  const openEditModal = (todo: Todo) => {
+    setEditingId(todo._id);
+    setFormTitle(todo.title);
+    setFormDescription(todo.description || "");
+    setFormPriority(todo.priority || "medium");
+    setFormDueDate(todo.dueDate ? todo.dueDate.slice(0, 10) : "");
+    setFormError(null);
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    if (submitting) return;
+    setModalOpen(false);
+  };
+
+  const submitForm = async () => {
+    if (!formTitle.trim()) {
+      setFormError("Title is required.");
+      return;
+    }
+    if (!API_URL || submitting) return;
 
     try {
       setSubmitting(true);
-      setError(null);
+      setFormError(null);
 
-      await safeFetchJson(`${API_URL}/todos`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: title.trim() }),
-      });
+      const payload = {
+        title: formTitle.trim(),
+        description: formDescription.trim(),
+        priority: formPriority,
+        dueDate: formDueDate || null,
+      };
 
-      setTitle("");
+      if (editingId) {
+        await safeFetchJson(`${API_URL}/todos/${editingId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      } else {
+        await safeFetchJson(`${API_URL}/todos`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      }
+
+      setModalOpen(false);
       await fetchTodos();
     } catch (err) {
       console.error(err);
-      setError(getErrorMessage(err));
+      setFormError(getErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
   };
 
-  const updateTodo = async () => {
-    if (!editingId || !title.trim() || !API_URL || submitting) return;
-
-    try {
-      setSubmitting(true);
-      setError(null);
-
-      await safeFetchJson(`${API_URL}/todos/${editingId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: title.trim() }),
-      });
-
-      setEditingId(null);
-      setTitle("");
-      await fetchTodos();
-    } catch (err) {
-      console.error(err);
-      setError(getErrorMessage(err));
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  /* ------------------------------ actions ------------------------------ */
 
   const toggleStatus = async (todo: Todo) => {
     if (!API_URL) return;
@@ -257,63 +395,96 @@ function AppContent() {
     }
   };
 
-  const deleteTodo = async (id: string) => {
-    if (!API_URL) return;
+  const confirmDelete = async () => {
+    if (!deleteTarget || !API_URL || deleting) return;
 
     try {
+      setDeleting(true);
       setError(null);
 
-      await safeFetchJson(`${API_URL}/todos/${id}`, {
+      await safeFetchJson(`${API_URL}/todos/${deleteTarget._id}`, {
         method: "DELETE",
       });
 
+      setDeleteTarget(null);
       await fetchTodos();
     } catch (err) {
       console.error(err);
       setError(getErrorMessage(err));
+    } finally {
+      setDeleting(false);
     }
   };
 
-  const startEdit = (todo: Todo) => {
-    setEditingId(todo._id);
-    setTitle(todo.title);
-  };
-
-  const cancelEdit = () => {
-    setEditingId(null);
-    setTitle("");
-  };
+  /* ------------------------------ helpers ------------------------------ */
 
   const formatDate = (value: string) => {
     const d = new Date(value);
     return Number.isNaN(d.getTime()) ? "Unknown date" : d.toLocaleString();
   };
 
+  const formatDueDate = (value: string) => {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
+  const isOverdue = (todo: Todo) => {
+    if (!todo.dueDate || todo.completed) return false;
+    const d = new Date(todo.dueDate);
+    if (Number.isNaN(d.getTime())) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return d.getTime() < today.getTime();
+  };
+
   const bannerMessage = configError ?? error;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
-      <div className="mx-auto max-w-4xl px-6 py-10">
-        <h1 className="mb-8 text-center text-4xl font-bold">
-          MERN Todo App V1
-        </h1>
+    <div className="min-h-screen bg-[#0B0D12] font-[Inter] text-[#E7E9EE]">
+      <div className="mx-auto max-w-3xl px-6 py-12">
+        {/* Header */}
+        <div className="mb-8 flex items-center justify-between gap-4">
+          <div>
+            <h1 className="font-[Sora] text-3xl font-bold tracking-tight">
+              Todo
+            </h1>
+            <p className="mt-1 text-sm text-[#8A90A6]">
+              {configError
+                ? "Not connected"
+                : `${total} ${total === 1 ? "task" : "tasks"} total`}
+            </p>
+          </div>
+
+          <button
+            onClick={openAddModal}
+            disabled={!!configError}
+            className="flex items-center gap-2 rounded-xl bg-[#7C6CF0] px-4 py-2.5 font-medium text-white shadow-lg shadow-[#7C6CF0]/20 transition hover:bg-[#6c5ce0] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <span className="text-lg leading-none">+</span> New task
+          </button>
+        </div>
 
         {/* Error banner */}
         {bannerMessage && (
-          <div className="mb-6 flex items-start justify-between gap-4 rounded-lg border border-red-800 bg-red-950/50 p-4 text-sm text-red-200">
+          <div className="mb-6 flex items-start justify-between gap-4 rounded-xl border border-[#3A2430] bg-[#211018] p-4 text-sm text-[#F2A5AC]">
             <span>{bannerMessage}</span>
             <div className="flex shrink-0 gap-2">
               {!configError && (
                 <button
                   onClick={fetchTodos}
-                  className="rounded bg-red-800/60 px-3 py-1 font-medium hover:bg-red-800"
+                  className="rounded-lg bg-[#3A2430] px-3 py-1 font-medium hover:bg-[#4a2c3b]"
                 >
                   Retry
                 </button>
               )}
               <button
                 onClick={() => setError(null)}
-                className="rounded px-2 py-1 text-red-300 hover:text-white"
+                className="rounded px-2 py-1 text-[#F2A5AC] hover:text-white"
                 aria-label="Dismiss error"
               >
                 ✕
@@ -322,60 +493,18 @@ function AppContent() {
           </div>
         )}
 
-        {/* Create / Update */}
-        <div className="mb-8 flex gap-3">
-          <input
-            type="text"
-            placeholder="Enter todo..."
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") editingId ? updateTodo() : createTodo();
-            }}
-            disabled={!!configError}
-            className="flex-1 rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 outline-none focus:border-blue-500 disabled:opacity-50"
-          />
-
-          {editingId ? (
-            <>
-              <button
-                onClick={updateTodo}
-                disabled={submitting || !title.trim() || !!configError}
-                className="rounded-lg bg-amber-500 px-5 py-3 font-medium text-black hover:bg-amber-400 disabled:opacity-50"
-              >
-                {submitting ? "Saving..." : "Update"}
-              </button>
-              <button
-                onClick={cancelEdit}
-                disabled={submitting}
-                className="rounded-lg bg-slate-800 px-5 py-3 font-medium hover:bg-slate-700 disabled:opacity-50"
-              >
-                Cancel
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={createTodo}
-              disabled={submitting || !title.trim() || !!configError}
-              className="rounded-lg bg-blue-600 px-5 py-3 font-medium hover:bg-blue-500 disabled:opacity-50"
-            >
-              {submitting ? "Adding..." : "Add"}
-            </button>
-          )}
-        </div>
-
         {/* Filters */}
-        <div className="mb-8 flex flex-col gap-3 md:flex-row">
+        <div className="mb-6 flex flex-col gap-3 md:flex-row">
           <input
             type="text"
-            placeholder="Search todo..."
+            placeholder="Search tasks..."
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
               setPage(1);
             }}
             disabled={!!configError}
-            className="flex-1 rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 outline-none disabled:opacity-50"
+            className="flex-1 rounded-xl border border-[#262B3A] bg-[#131620] px-4 py-2.5 text-sm outline-none transition focus:border-[#7C6CF0] disabled:opacity-50"
           />
 
           <select
@@ -385,98 +514,309 @@ function AppContent() {
               setPage(1);
             }}
             disabled={!!configError}
-            className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-3 disabled:opacity-50"
+            className="rounded-xl border border-[#262B3A] bg-[#131620] px-4 py-2.5 text-sm outline-none disabled:opacity-50"
           >
-            <option value="all">All</option>
+            <option value="all">All statuses</option>
             <option value="completed">Completed</option>
             <option value="pending">Pending</option>
+          </select>
+
+          <select
+            value={priorityFilter}
+            onChange={(e) => {
+              setPriorityFilter(e.target.value);
+              setPage(1);
+            }}
+            disabled={!!configError}
+            className="rounded-xl border border-[#262B3A] bg-[#131620] px-4 py-2.5 text-sm outline-none disabled:opacity-50"
+          >
+            <option value="all">All priorities</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
           </select>
         </div>
 
         {/* Todo List */}
         <div className="space-y-3">
           {configError ? null : loading ? (
-            <div className="text-center text-slate-400">Loading...</div>
+            <div className="rounded-xl border border-[#262B3A] bg-[#131620] p-8 text-center text-sm text-[#8A90A6]">
+              Loading...
+            </div>
           ) : todos.length === 0 ? (
-            <div className="rounded-lg border border-slate-800 p-6 text-center text-slate-400">
-              No Todos Found
+            <div className="rounded-xl border border-[#262B3A] bg-[#131620] p-8 text-center">
+              <p className="text-sm text-[#8A90A6]">
+                {search || status !== "all" || priorityFilter !== "all"
+                  ? "No tasks match your filters."
+                  : "No tasks yet. Add your first one."}
+              </p>
             </div>
           ) : (
-            todos.map((todo) => (
-              <div
-                key={todo._id}
-                className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900 p-4"
-              >
-                <div>
-                  <h3
-                    className={`font-medium ${
-                      todo.completed ? "line-through text-green-500" : ""
-                    }`}
-                  >
-                    {todo.title}
-                  </h3>
+            todos.map((todo) => {
+              const overdue = isOverdue(todo);
+              const cfg = PRIORITY_CONFIG[todo.priority || "medium"];
+              const due = todo.dueDate ? formatDueDate(todo.dueDate) : null;
 
-                  <p className="mt-1 text-sm text-slate-400">
-                    {formatDate(todo.createdAt)}
-                  </p>
-                </div>
+              return (
+                <div
+                  key={todo._id}
+                  className="group flex gap-3 rounded-xl border border-[#262B3A] bg-[#131620] p-4 transition hover:border-[#333a4d]"
+                >
+                  <div
+                    className="w-1 shrink-0 rounded-full"
+                    style={{ backgroundColor: cfg.color }}
+                  />
 
-                <div className="flex gap-2">
                   <button
                     onClick={() => toggleStatus(todo)}
-                    className={`rounded px-3 py-2 text-sm font-medium ${
-                      todo.completed
-                        ? "bg-yellow-500 text-black"
-                        : "bg-green-600"
-                    }`}
+                    className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition"
+                    style={{
+                      borderColor: todo.completed ? "#34C77B" : "#3A3F51",
+                      backgroundColor: todo.completed
+                        ? "#34C77B"
+                        : "transparent",
+                    }}
+                    aria-label={
+                      todo.completed ? "Mark as pending" : "Mark as done"
+                    }
                   >
-                    {todo.completed ? "Undo" : "Done"}
+                    {todo.completed && (
+                      <span className="text-xs leading-none text-[#0B0D12]">
+                        ✓
+                      </span>
+                    )}
                   </button>
 
-                  <button
-                    onClick={() => startEdit(todo)}
-                    className="rounded bg-blue-600 px-3 py-2 text-sm"
-                  >
-                    Edit
-                  </button>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3
+                        className={`font-medium ${
+                          todo.completed
+                            ? "text-[#5C6278] line-through"
+                            : "text-[#E7E9EE]"
+                        }`}
+                      >
+                        {todo.title}
+                      </h3>
+                      <PriorityBadge priority={todo.priority || "medium"} />
+                    </div>
 
-                  <button
-                    onClick={() => deleteTodo(todo._id)}
-                    className="rounded bg-red-600 px-3 py-2 text-sm"
-                  >
-                    Delete
-                  </button>
+                    {todo.description && (
+                      <p
+                        className={`mt-1 text-sm ${
+                          todo.completed
+                            ? "text-[#4A5064] line-through"
+                            : "text-[#8A90A6]"
+                        }`}
+                      >
+                        {todo.description}
+                      </p>
+                    )}
+
+                    <div className="mt-2 flex flex-wrap items-center gap-3 font-[JetBrains_Mono] text-xs text-[#5C6278]">
+                      <span>{formatDate(todo.createdAt)}</span>
+                      {due && (
+                        <span
+                          className={
+                            overdue
+                              ? "rounded bg-[#3A2430] px-1.5 py-0.5 text-[#F2A5AC]"
+                              : ""
+                          }
+                        >
+                          {overdue ? "Overdue: " : "Due "}
+                          {due}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex shrink-0 items-start gap-1 opacity-0 transition group-hover:opacity-100">
+                    <button
+                      onClick={() => openEditModal(todo)}
+                      className="rounded-lg px-2.5 py-1.5 text-sm text-[#8A90A6] hover:bg-[#191D29] hover:text-white"
+                      aria-label="Edit task"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => setDeleteTarget(todo)}
+                      className="rounded-lg px-2.5 py-1.5 text-sm text-[#8A90A6] hover:bg-[#3A2430] hover:text-[#F2A5AC]"
+                      aria-label="Delete task"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
         {/* Pagination */}
-        {!configError && (
+        {!configError && todos.length > 0 && (
           <div className="mt-8 flex items-center justify-center gap-3">
             <button
               disabled={page === 1 || loading}
               onClick={() => setPage((prev) => prev - 1)}
-              className="rounded bg-slate-800 px-4 py-2 disabled:opacity-50"
+              className="rounded-lg border border-[#262B3A] bg-[#131620] px-4 py-2 text-sm disabled:opacity-40"
             >
               Prev
             </button>
 
-            <span>
+            <span className="text-sm text-[#8A90A6]">
               Page {page} / {totalPages}
             </span>
 
             <button
               disabled={page === totalPages || loading}
               onClick={() => setPage((prev) => prev + 1)}
-              className="rounded bg-slate-800 px-4 py-2 disabled:opacity-50"
+              className="rounded-lg border border-[#262B3A] bg-[#131620] px-4 py-2 text-sm disabled:opacity-40"
             >
               Next
             </button>
           </div>
         )}
       </div>
+
+      {/* Add / Edit modal */}
+      {modalOpen && (
+        <Overlay onClose={closeModal}>
+          <div className="p-6">
+            <h2 className="mb-5 font-[Sora] text-xl font-bold">
+              {editingId ? "Edit task" : "New task"}
+            </h2>
+
+            {formError && (
+              <div className="mb-4 rounded-lg border border-[#3A2430] bg-[#211018] px-3 py-2 text-sm text-[#F2A5AC]">
+                {formError}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-[#8A90A6]">
+                  Title
+                </label>
+                <input
+                  autoFocus
+                  type="text"
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
+                  placeholder="What needs to be done?"
+                  className="w-full rounded-xl border border-[#262B3A] bg-[#0B0D12] px-4 py-2.5 text-sm outline-none focus:border-[#7C6CF0]"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-[#8A90A6]">
+                  Description
+                </label>
+                <textarea
+                  value={formDescription}
+                  onChange={(e) => setFormDescription(e.target.value)}
+                  placeholder="Add more detail (optional)"
+                  rows={3}
+                  className="w-full resize-none rounded-xl border border-[#262B3A] bg-[#0B0D12] px-4 py-2.5 text-sm outline-none focus:border-[#7C6CF0]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-[#8A90A6]">
+                    Priority
+                  </label>
+                  <div className="flex gap-1.5">
+                    {(Object.keys(PRIORITY_CONFIG) as Priority[]).map((p) => {
+                      const cfg = PRIORITY_CONFIG[p];
+                      const active = formPriority === p;
+                      return (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => setFormPriority(p)}
+                          className="flex-1 rounded-lg border px-2 py-2 text-xs font-medium transition"
+                          style={{
+                            borderColor: active ? cfg.color : "#262B3A",
+                            backgroundColor: active ? cfg.bg : "transparent",
+                            color: active ? cfg.color : "#8A90A6",
+                          }}
+                        >
+                          {cfg.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-[#8A90A6]">
+                    Due date
+                  </label>
+                  <input
+                    type="date"
+                    value={formDueDate}
+                    onChange={(e) => setFormDueDate(e.target.value)}
+                    className="w-full rounded-xl border border-[#262B3A] bg-[#0B0D12] px-3 py-2.5 text-sm outline-none focus:border-[#7C6CF0] [color-scheme:dark]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={closeModal}
+                disabled={submitting}
+                className="rounded-xl px-4 py-2.5 text-sm font-medium text-[#8A90A6] hover:bg-[#191D29] hover:text-white disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitForm}
+                disabled={submitting || !formTitle.trim()}
+                className="rounded-xl bg-[#7C6CF0] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#6c5ce0] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {submitting
+                  ? "Saving..."
+                  : editingId
+                    ? "Save changes"
+                    : "Add task"}
+              </button>
+            </div>
+          </div>
+        </Overlay>
+      )}
+
+      {/* Delete confirmation popup */}
+      {deleteTarget && (
+        <Overlay
+          onClose={() => !deleting && setDeleteTarget(null)}
+          maxWidth="max-w-sm"
+        >
+          <div className="p-6">
+            <h2 className="mb-2 font-[Sora] text-lg font-bold">Delete task?</h2>
+            <p className="mb-6 text-sm text-[#8A90A6]">
+              "{deleteTarget.title}" will be permanently removed. This can't be
+              undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+                className="rounded-xl px-4 py-2.5 text-sm font-medium text-[#8A90A6] hover:bg-[#191D29] hover:text-white disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="rounded-xl bg-[#E5484D] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#d33f44] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {deleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </Overlay>
+      )}
     </div>
   );
 }
