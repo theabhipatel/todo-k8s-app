@@ -6,6 +6,144 @@
     "graphTooltip": 1,
     "panels": [
         {
+            "id": 100,
+            "title": "Total Requests",
+            "type": "stat",
+            "gridPos": {
+                "h": 6,
+                "w": 6,
+                "x": 0,
+                "y": 0
+            },
+            "targets": [
+                {
+                    "expr": "sum(nginx_ingress_controller_requests{host=~\"todo.theabhipatel.com|api.todo.theabhipatel.com\"})",
+                    "refId": "A"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "short",
+                    "decimals": 0
+                },
+                "overrides": []
+            },
+            "options": {
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "values": false
+                },
+                "orientation": "auto",
+                "textMode": "auto",
+                "colorMode": "value",
+                "graphMode": "none",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 101,
+            "title": "Requests / Second",
+            "type": "stat",
+            "gridPos": {
+                "h": 6,
+                "w": 6,
+                "x": 6,
+                "y": 0
+            },
+            "targets": [
+                {
+                    "expr": "sum(rate(nginx_ingress_controller_requests{host=~\"todo.theabhipatel.com|api.todo.theabhipatel.com\"}[5m]))",
+                    "refId": "A"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "reqps",
+                    "decimals": 2
+                },
+                "overrides": []
+            },
+            "options": {
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "values": false
+                },
+                "orientation": "auto",
+                "textMode": "auto",
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "auto"
+            }
+        },
+        {
+            "id": 102,
+            "title": "Success Rate %",
+            "type": "stat",
+            "gridPos": {
+                "h": 6,
+                "w": 6,
+                "x": 12,
+                "y": 0
+            },
+            "targets": [
+                {
+                    "expr": "100*sum(rate(nginx_ingress_controller_requests{host=~\"todo.theabhipatel.com|api.todo.theabhipatel.com\",status=~\"2..\"}[5m]))/sum(rate(nginx_ingress_controller_requests{host=~\"todo.theabhipatel.com|api.todo.theabhipatel.com\"}[5m]))",
+                    "refId": "A"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "percent",
+                    "decimals": 2
+                },
+                "overrides": []
+            },
+            "options": {
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "values": false
+                }
+            }
+        },
+        {
+            "id": 103,
+            "title": "Error Rate %",
+            "type": "stat",
+            "gridPos": {
+                "h": 6,
+                "w": 6,
+                "x": 18,
+                "y": 0
+            },
+            "targets": [
+                {
+                    "expr": "100*sum(rate(nginx_ingress_controller_requests{host=~\"todo.theabhipatel.com|api.todo.theabhipatel.com\",status=~\"4..|5..\"}[5m]))/sum(rate(nginx_ingress_controller_requests{host=~\"todo.theabhipatel.com|api.todo.theabhipatel.com\"}[5m]))",
+                    "refId": "A"
+                }
+            ],
+            "fieldConfig": {
+                "defaults": {
+                    "unit": "percent",
+                    "decimals": 2
+                },
+                "overrides": []
+            },
+            "options": {
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "values": false
+                }
+            }
+        },
+        {
             "id": 1,
             "title": "Requests / Second",
             "type": "stat",
@@ -13,7 +151,7 @@
                 "h": 6,
                 "w": 6,
                 "x": 0,
-                "y": 0
+                "y": 6
             },
             "targets": [
                 {
@@ -50,7 +188,7 @@
                 "h": 6,
                 "w": 6,
                 "x": 6,
-                "y": 0
+                "y": 6
             },
             "targets": [
                 {
@@ -87,7 +225,7 @@
                 "h": 6,
                 "w": 6,
                 "x": 12,
-                "y": 0
+                "y": 6
             },
             "targets": [
                 {
@@ -124,7 +262,7 @@
                 "h": 6,
                 "w": 6,
                 "x": 18,
-                "y": 0
+                "y": 6
             },
             "targets": [
                 {
@@ -161,7 +299,7 @@
                 "h": 9,
                 "w": 12,
                 "x": 0,
-                "y": 6
+                "y": 12
             },
             "targets": [
                 {
@@ -196,7 +334,7 @@
                 "h": 9,
                 "w": 12,
                 "x": 12,
-                "y": 6
+                "y": 12
             },
             "targets": [
                 {
@@ -231,7 +369,7 @@
                 "h": 9,
                 "w": 24,
                 "x": 0,
-                "y": 15
+                "y": 21
             },
             "targets": [
                 {
@@ -276,5 +414,5 @@
     "timezone": "browser",
     "title": "Traffic & HTTP",
     "uid": "todo-traffic-http",
-    "version": 1
+    "version": 2
 }
