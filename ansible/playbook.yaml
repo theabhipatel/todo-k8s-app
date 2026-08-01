@@ -100,21 +100,6 @@
       changed_when: false
 
     # --------------------------------------------------
-    # NGINX Ingress
-    # --------------------------------------------------
-
-    - name: Install NGINX Ingress
-      command: >
-        helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx
-        --namespace ingress-nginx
-        --create-namespace
-        --set controller.metrics.enabled=true
-        --set controller.metrics.serviceMonitor.enabled=true
-        --set controller.metrics.serviceMonitor.additionalLabels.release=monitoring
-        --wait
-        --timeout 10m
-
-    # --------------------------------------------------
     # cert-manager
     # --------------------------------------------------
 
@@ -147,6 +132,21 @@
         --set-string grafana.adminPassword={{ grafana_admin_password }}
         --wait
         --timeout 15m
+
+    # --------------------------------------------------
+    # NGINX Ingress
+    # --------------------------------------------------
+
+    - name: Install NGINX Ingress
+      command: >
+        helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx
+        --namespace ingress-nginx
+        --create-namespace
+        --set controller.metrics.enabled=true
+        --set controller.metrics.serviceMonitor.enabled=true
+        --set controller.metrics.serviceMonitor.additionalLabels.release=monitoring
+        --wait
+        --timeout 10m
 
     # --------------------------------------------------
     # Grafana Dashboards
