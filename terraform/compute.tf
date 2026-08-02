@@ -48,6 +48,30 @@ resource "aws_security_group" "main" {
   self = true
 }
 
+ingress {
+  description = "Node to Node TCP"
+  from_port   = 0
+  to_port     = 65535
+  protocol    = "tcp"
+  self        = true
+}
+
+ingress {
+  description = "Node to Node UDP"
+  from_port   = 0
+  to_port     = 65535
+  protocol    = "udp"
+  self        = true
+}
+
+ingress {
+  description = "Flannel VXLAN"
+  from_port   = 8472
+  to_port     = 8472
+  protocol    = "udp"
+  self        = true
+}
+
   egress {
     from_port   = 0
     to_port     = 0
