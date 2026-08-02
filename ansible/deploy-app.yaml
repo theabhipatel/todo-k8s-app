@@ -51,6 +51,15 @@
           - dex.nodeSelector.node-role=controller
           - --set
           - notifications.nodeSelector.node-role=controller
+
+          - --set
+          - global.tolerations[0].key=node-role.kubernetes.io/control-plane
+          - --set
+          - global.tolerations[0].operator=Equal
+          - --set-string
+          - global.tolerations[0].value=true
+          - --set
+          - global.tolerations[0].effect=NoSchedule
           - --wait
           - --timeout
           - 10m

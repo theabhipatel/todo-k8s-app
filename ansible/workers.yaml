@@ -56,9 +56,10 @@
     # Verify
     # --------------------------------------------------
 
-    - name: Wait for worker node to join
-      pause:
-        seconds: 15
+    - name: Wait for all worker nodes to become Ready
+      command: kubectl wait --for=condition=Ready node --all --timeout=300s
+      delegate_to: "{{ groups['k3s_controller'][0] }}"
+      changed_when: false
 
 - name: Verify Kubernetes Cluster
   hosts: k3s_controller
