@@ -17,6 +17,14 @@ spec:
     server: https://kubernetes.default.svc
     namespace: todo-app
 
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      name: backend-deployment
+      namespace: todo-app
+      jsonPointers:
+        - /spec/replicas
+
   syncPolicy:
     automated:
       prune: true
