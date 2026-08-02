@@ -9,3 +9,21 @@ grafana:
       enabled: true
       label: grafana_dashboard
       labelValue: "1"
+
+prometheus:
+  prometheusSpec:
+    nodeSelector:
+      node-role: controller
+
+alertmanager:
+  alertmanagerSpec:
+    nodeSelector:
+      node-role: controller
+
+prometheusOperator:
+  nodeSelector:
+    node-role: controller
+
+kube-state-metrics:
+  nodeSelector:
+    node-role: controller    

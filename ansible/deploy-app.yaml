@@ -37,6 +37,20 @@
           - --create-namespace
           - --set-string
           - "configs.secret.argocdServerAdminPassword={{ argocd_password_hash.stdout.split(':', 1)[1] }}"
+          - --set
+          - controller.nodeSelector.node-role=controller
+          - --set
+          - server.nodeSelector.node-role=controller
+          - --set
+          - repoServer.nodeSelector.node-role=controller
+          - --set
+          - applicationSet.nodeSelector.node-role=controller
+          - --set
+          - redis.nodeSelector.node-role=controller
+          - --set
+          - dex.nodeSelector.node-role=controller
+          - --set
+          - notifications.nodeSelector.node-role=controller
           - --wait
           - --timeout
           - 10m

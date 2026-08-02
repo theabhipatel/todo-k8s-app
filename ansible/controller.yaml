@@ -53,6 +53,14 @@
       command: kubectl wait --for=condition=Ready node --all --timeout=300s
       changed_when: false
 
+    - name: Label controller node
+      shell: >
+        kubectl label node
+        $(kubectl get nodes -l node-role.kubernetes.io/control-plane=true -o jsonpath='{.items[0].metadata.name}')
+        node-role=controller
+        --overwrite
+      changed_when: false
+
     - name: Get controller private IP
       set_fact:
         controller_private_ip: "{{ ansible_default_ipv4.address }}"
@@ -118,6 +126,11 @@
         --namespace cert-manager
         --create-namespace
         --set crds.enabled=true
+        --set nodeSelector.node-role=controller
+        --set tolerations[0].key=node-role.kubernetes.io/control-plane
+        --set tolerations[0].operator=Equal
+        --set tolerations[0].value=true
+        --set tolerations[0].effect=NoSchedule
         --wait
         --timeout 10m
 
