@@ -1,3 +1,9 @@
+## Terraform command
+
+```
+terraform apply --auto-approve
+```
+
 ## Ansible commands to run
 ```
 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook playbook.yaml
